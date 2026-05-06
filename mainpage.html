@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <title>Mainpage</title>
+  <link rel="stylesheet" href="index.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    #map {
+      position: absolute;
+      top: 60px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 0;
+    }
+
+    .popup-btn {
+      width: 100%;
+      padding: 10px 16px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(0,0,0,0.2);
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      color: #ffffff;
+      cursor: pointer;
+      font-weight: 600;
+      transition: 200ms transform, 200ms box-shadow;
+      display: block;
+      text-align: center;
+      margin-top: 6px;
+    }
+
+    .popup-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+  </style>
+</head>
+<body>
+
+  <div id="menu-placeholder"></div>
+
+  <div id="map"></div>
+
+<script type="module">
+import { initMenu } from "./menu.js";
+import { requireLogin } from "./auth.js";
+
+const BASE_URL = "http://[2001:718:1c01:21:250:56ff:fe8e:6246]:3000";
+
+(async () => {
+  // --- OVĚŘENÍ PŘIHLÁŠENÍ ---
+  try {
+    await requireLogin(); // počká, dokud se neověří uživatel
+  } catch {
+    return; // pokud není přihlášený, už byl přesměrován na index.html
+  }
+
+  // --- NAČTENÍ MENU ---
+  try {
+    const menuHtml = await fetch("menu.html").then(r => r.text());
+    document.getElementById("menu-placeholder").innerHTML = menuHtml;
+    initMenu();
+  } catch (err) {
+    console.error("Nepodařilo se načíst menu:", err);
+  }
+
+  // --- INITIALIZACE MAPY ---
+  const map = L.map("map").setView([50.7700, 15.0580], 13);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
+
+  // --- NAČTENÍ STANIC ---
+  try {
+    const stations = await fetch(`${BASE_URL}/stations`, { credentials: "include" })
+      .then(r => r.json());
+
+    stations.forEach(station => {
+      const marker = L.marker([station.lat, station.lon]).addTo(map);
+      marker.bindPopup(`
+        <b>${station.name}</b><br>
+        <button class="popup-btn" onclick="window.location.href='station_stats.html?id=${station._id}'">
+          Zobrazit statistiky
+        </button>
+      `);
+    });
+
+  } catch (err) {
+    console.error("Nepodařilo se načíst stanice:", err);
+  }
+})();
+</script>
+
+</body>
+</html>
